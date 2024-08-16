@@ -16,10 +16,22 @@ public class CardanoDbContext(DbContextOptions options, IConfiguration configura
         modelBuilder.HasDefaultSchema(_configuration.GetConnectionString("CardanoContextSchema"));
         modelBuilder.Entity<Block>().HasIndex(b => b.Slot);
         modelBuilder.Entity<Block>().HasKey(b => new { b.Id, b.Number, b.Slot });
-        modelBuilder.Entity<TransactionOutput>().HasIndex(item => item.Slot);
-        modelBuilder.Entity<TransactionOutput>().HasKey(item => new { item.Id, item.Index });
-        modelBuilder.Entity<TransactionOutput>().OwnsOne(item => item.Amount);
-        modelBuilder.Entity<TransactionOutput>().OwnsOne(item => item.Datum);
+
+        modelBuilder.Entity<TransactionOutput>(entity =>
+        {
+            entity.HasKey(item => new { item.Id, item.Index, item.UtxoStatus });
+
+            entity.HasIndex(item => item.Id);
+            entity.HasIndex(item => item.Index);
+            entity.HasIndex(item => item.Slot);
+            entity.HasIndex(item => item.UtxoStatus);
+
+            entity.OwnsOne(item => item.Datum);
+
+            entity.Ignore(item => item.AmountDatum);
+            entity.Ignore(item => item.Amount);
+        });
+
         modelBuilder.Entity<ReducerState>().HasKey(item => item.Name);
         base.OnModelCreating(modelBuilder);
     }

@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Text.Json;
+using PeterO.Cbor2;
 
 namespace Cardano.Sync.Data.Models;
 
@@ -9,24 +9,25 @@ public record Value
 
     [NotMapped]
     public Dictionary<string, Dictionary<string, ulong>> MultiAsset { get; set; } = default!;
-
-    public JsonElement MultiAssetJson
+    
+    public byte[] MultiAssetCbor
     {
         get
         {
-            var jsonString = JsonSerializer.Serialize(MultiAsset);
-            return JsonDocument.Parse(jsonString).RootElement;
+            CBORObject cborObject = CBORObject.FromObject(MultiAsset);
+            return cborObject.EncodeToBytes();
         }
 
         set
         {
-            if (value.ValueKind == JsonValueKind.Undefined || value.ValueKind == JsonValueKind.Null)
+            if (value == null || value.Length == 0)
             {
                 MultiAsset = [];
             }
             else
             {
-                MultiAsset = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, ulong>>>(value.GetRawText()) ?? [];
+                CBORObject cborObject = CBORObject.DecodeFromBytes(value);
+                MultiAsset = cborObject.ToObject<Dictionary<string, Dictionary<string, ulong>>>() ?? [];
             }
         }
     }

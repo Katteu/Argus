@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -49,17 +49,50 @@ namespace Cardano.Sync.Example.Migrations
                 {
                     Id = table.Column<string>(type: "text", nullable: false),
                     Index = table.Column<long>(type: "bigint", nullable: false),
+                    UtxoStatus = table.Column<int>(type: "integer", nullable: false),
+                    Slot = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
                     Address = table.Column<string>(type: "text", nullable: false),
-                    Amount_Coin = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
-                    Amount_MultiAssetJson = table.Column<JsonElement>(type: "jsonb", nullable: false),
+                    AmountCbor = table.Column<byte[]>(type: "bytea", nullable: false),
                     Datum_Type = table.Column<int>(type: "integer", nullable: true),
                     Datum_Data = table.Column<byte[]>(type: "bytea", nullable: true),
-                    Slot = table.Column<decimal>(type: "numeric(20,0)", nullable: false)
+                    ReferenceScript = table.Column<byte[]>(type: "bytea", nullable: true),
+                    DateCreated = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    DateSpent = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_TransactionOutputs", x => new { x.Id, x.Index });
+                    table.PrimaryKey("PK_TransactionOutputs", x => new { x.Id, x.Index, x.UtxoStatus });
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Blocks_Slot",
+                schema: "cardanoindexer",
+                table: "Blocks",
+                column: "Slot");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TransactionOutputs_Id",
+                schema: "cardanoindexer",
+                table: "TransactionOutputs",
+                column: "Id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TransactionOutputs_Index",
+                schema: "cardanoindexer",
+                table: "TransactionOutputs",
+                column: "Index");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TransactionOutputs_Slot",
+                schema: "cardanoindexer",
+                table: "TransactionOutputs",
+                column: "Slot");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TransactionOutputs_UtxoStatus",
+                schema: "cardanoindexer",
+                table: "TransactionOutputs",
+                column: "UtxoStatus");
         }
 
         /// <inheritdoc />
