@@ -8,8 +8,6 @@ using ValueDatum = Cardano.Sync.Data.Models.Datums.Value;
 using Value = Cardano.Sync.Data.Models.Value;
 using Cardano.Sync.Data.Models.Enums;
 using Cardano.Sync.Data.Models;
-using Crashr.Data.Models.Datums;
-using CardanoSharp.Wallet.Extensions;
 
 namespace Cardano.Sync;
 
@@ -17,6 +15,7 @@ public static class Utils
 {
     public static TransactionOutputEntity MapTransactionOutputEntity(string TransactionId, ulong slot, TransactionOutput output, UtxoStatus status)
     {   
+        TxOutput raw = CborConverter.Deserialize<TxOutput>(output.Raw);
         return new TransactionOutputEntity
         {
             Id = TransactionId,
@@ -35,6 +34,7 @@ public static class Utils
                     )
                 )
             },
+            ReferenceScript = raw?.ScriptRef,
             UtxoStatus = status,
             DateCreated = DateTimeOffset.UtcNow
         };
