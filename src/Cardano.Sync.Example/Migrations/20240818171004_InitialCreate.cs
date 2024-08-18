@@ -49,19 +49,19 @@ namespace Cardano.Sync.Example.Migrations
                 {
                     Id = table.Column<string>(type: "text", nullable: false),
                     Index = table.Column<long>(type: "bigint", nullable: false),
-                    UtxoStatus = table.Column<int>(type: "integer", nullable: false),
                     Slot = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
                     Address = table.Column<string>(type: "text", nullable: false),
                     AmountCbor = table.Column<byte[]>(type: "bytea", nullable: false),
                     Datum_Type = table.Column<int>(type: "integer", nullable: true),
                     Datum_Data = table.Column<byte[]>(type: "bytea", nullable: true),
                     ReferenceScript = table.Column<byte[]>(type: "bytea", nullable: true),
+                    UtxoStatus = table.Column<int>(type: "integer", nullable: false),
                     DateCreated = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     DateSpent = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_TransactionOutputs", x => new { x.Id, x.Index, x.UtxoStatus });
+                    table.PrimaryKey("PK_TransactionOutputs", x => new { x.Id, x.Index });
                 });
 
             migrationBuilder.CreateIndex(

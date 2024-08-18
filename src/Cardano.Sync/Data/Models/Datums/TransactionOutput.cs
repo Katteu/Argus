@@ -90,7 +90,25 @@ public class TxOutputCborConvert : ICborConvertor<TxOutput>
         {
             reader.ReadStartArray();
             outputAddress = reader.ReadByteString();
-            reader.SkipValue();
+            if (reader.PeekState() == CborReaderState.StartArray)
+            {
+                reader.ReadStartArray();
+                reader.SkipValue();
+                if (reader.PeekState() == CborReaderState.StartMap)
+                {
+                    reader.SkipValue();
+                }
+                reader.ReadEndArray();
+            }
+            else
+            {
+                reader.SkipValue();
+            }
+
+            if (reader.PeekState() != CborReaderState.EndArray)
+            {
+                reader.SkipValue();
+            }
             reader.ReadEndArray();
         }
 

@@ -19,7 +19,7 @@ public class CardanoDbContext(DbContextOptions options, IConfiguration configura
 
         modelBuilder.Entity<TransactionOutput>(entity =>
         {
-            entity.HasKey(item => new { item.Id, item.Index, item.UtxoStatus });
+            entity.HasKey(item => new { item.Id, item.Index });
 
             entity.HasIndex(item => item.Id);
             entity.HasIndex(item => item.Index);

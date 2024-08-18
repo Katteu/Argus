@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Cardano.Sync.Example.Migrations
 {
     [DbContext(typeof(CardanoTestDbContext))]
-    [Migration("20240816195323_InitialCreate")]
+    [Migration("20240818171004_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -69,9 +69,6 @@ namespace Cardano.Sync.Example.Migrations
                     b.Property<long>("Index")
                         .HasColumnType("bigint");
 
-                    b.Property<int>("UtxoStatus")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Address")
                         .IsRequired()
                         .HasColumnType("text");
@@ -92,7 +89,10 @@ namespace Cardano.Sync.Example.Migrations
                     b.Property<decimal>("Slot")
                         .HasColumnType("numeric(20,0)");
 
-                    b.HasKey("Id", "Index", "UtxoStatus");
+                    b.Property<int>("UtxoStatus")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id", "Index");
 
                     b.HasIndex("Id");
 
@@ -115,9 +115,6 @@ namespace Cardano.Sync.Example.Migrations
                             b1.Property<long>("TransactionOutputIndex")
                                 .HasColumnType("bigint");
 
-                            b1.Property<int>("TransactionOutputUtxoStatus")
-                                .HasColumnType("integer");
-
                             b1.Property<byte[]>("Data")
                                 .IsRequired()
                                 .HasColumnType("bytea");
@@ -125,12 +122,12 @@ namespace Cardano.Sync.Example.Migrations
                             b1.Property<int>("Type")
                                 .HasColumnType("integer");
 
-                            b1.HasKey("TransactionOutputId", "TransactionOutputIndex", "TransactionOutputUtxoStatus");
+                            b1.HasKey("TransactionOutputId", "TransactionOutputIndex");
 
                             b1.ToTable("TransactionOutputs", "cardanoindexer");
 
                             b1.WithOwner()
-                                .HasForeignKey("TransactionOutputId", "TransactionOutputIndex", "TransactionOutputUtxoStatus");
+                                .HasForeignKey("TransactionOutputId", "TransactionOutputIndex");
                         });
 
                     b.Navigation("Datum");

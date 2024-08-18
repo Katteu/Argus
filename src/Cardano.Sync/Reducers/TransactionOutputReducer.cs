@@ -50,7 +50,6 @@ public class TransactionOutputReducer<T>(
             .ToList();
 
         List<TransactionOutputEntity> existingOutputs = await _dbContext.TransactionOutputs
-            .AsNoTracking()
             .Where(to => inputHashes.Contains(to.Id + to.Index.ToString()))
             .ToListAsync();
 
