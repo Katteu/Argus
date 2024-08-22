@@ -1,4 +1,5 @@
 using PallasDotnet.Models;
+using TxOutput = Cardano.Sync.Data.Models.Datums.TransactionOutput;
 using TransactionOutputEntity = Cardano.Sync.Data.Models.TransactionOutput;
 using TransactionOutput = PallasDotnet.Models.TransactionOutput;
 using ValueEntity = Cardano.Sync.Data.Models.Value;
@@ -9,9 +10,9 @@ using Value = Cardano.Sync.Data.Models.Value;
 using Cardano.Sync.Data.Models.Enums;
 using Cardano.Sync.Data.Models;
 
-namespace Cardano.Sync;
+namespace Cardano.Sync.Utils;
 
-public static class Utils
+public static class DataUtils
 {
     public static TransactionOutputEntity MapTransactionOutputEntity(string TransactionId, ulong slot, TransactionOutput output, UtxoStatus status)
     {   
@@ -36,7 +37,6 @@ public static class Utils
             },
             ReferenceScript = raw?.ScriptRef,
             UtxoStatus = status,
-            DateCreated = DateTimeOffset.UtcNow
         };
     }
 

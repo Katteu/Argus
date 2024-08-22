@@ -32,12 +32,12 @@ namespace Cardano.Sync.Data.Models.Datums;
 //         ]>>),
 //     ],
 // }
-[CborSerialize(typeof(TxOutputCborConvert))]
-public record TxOutput(byte[] OutputAddress, Value Amount, Datum Data, byte[] ScriptRef) : IDatum;
+[CborSerialize(typeof(TransactionOutputCborConvert))]
+public record TransactionOutput(byte[] OutputAddress, Value Amount, Datum Data, byte[] ScriptRef) : IDatum;
 
-public class TxOutputCborConvert : ICborConvertor<TxOutput>
+public class TransactionOutputCborConvert : ICborConvertor<TransactionOutput>
 {
-    public TxOutput Read(ref CborReader reader)
+    public TransactionOutput Read(ref CborReader reader)
     {
         byte[]? outputAddress = null;
         Value? amount = null;
@@ -112,10 +112,10 @@ public class TxOutputCborConvert : ICborConvertor<TxOutput>
             reader.ReadEndArray();
         }
 
-        return new TxOutput(outputAddress, amount, data, scriptRef);
+        return new TransactionOutput(outputAddress, amount, data, scriptRef);
     }
 
-    public void Write(ref CborWriter writer, TxOutput value)
+    public void Write(ref CborWriter writer, TransactionOutput value)
     {
         throw new NotImplementedException();
     }

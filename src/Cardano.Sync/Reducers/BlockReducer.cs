@@ -19,11 +19,14 @@ public class BlockReducer<T>(IDbContextFactory<T> dbContextFactory) : IBlockRedu
     public async Task RollForwardAsync(NextResponse response)
     {
         _dbContext = dbContextFactory.CreateDbContext();
-        _dbContext.Blocks.Add(new BlockEntity(
-            response.Block.Hash.ToHex(),
-            response.Block.Number,
-            response.Block.Slot
-        ));
+
+        _dbContext.Blocks.Add(new BlockEntity
+        {
+            Id = response.Block.Hash.ToHex(),
+            Number = response.Block.Number,
+            Slot = response.Block.Slot,
+            BlockCbor = []
+        });
 
         await _dbContext.SaveChangesAsync();
         _dbContext.Dispose();

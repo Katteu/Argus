@@ -32,7 +32,7 @@ public static class ServiceCollectionExtensions
         // Registering required services as singletons
         services.AddSingleton<IBlockReducer, BlockReducer<T>>();
         services.AddSingleton<ICoreReducer, TransactionOutputReducer<T>>();
-        // services.AddSingleton<ICoreReducer, TxBySlotReducer<T>>();
+        services.AddSingleton<IReducer, TransactionReducer<T>>();
 
         // Registering the hosted service
         services.AddHostedService<CardanoIndexWorker<T>>();
