@@ -1,5 +1,4 @@
-﻿using System;
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -21,7 +20,8 @@ namespace Cardano.Sync.Example.Migrations
                 {
                     Id = table.Column<string>(type: "text", nullable: false),
                     Number = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
-                    Slot = table.Column<decimal>(type: "numeric(20,0)", nullable: false)
+                    Slot = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
+                    BlockCbor = table.Column<byte[]>(type: "bytea", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -50,18 +50,31 @@ namespace Cardano.Sync.Example.Migrations
                     Id = table.Column<string>(type: "text", nullable: false),
                     Index = table.Column<long>(type: "bigint", nullable: false),
                     Slot = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
+                    SpentSlot = table.Column<decimal>(type: "numeric(20,0)", nullable: true),
                     Address = table.Column<string>(type: "text", nullable: false),
                     AmountCbor = table.Column<byte[]>(type: "bytea", nullable: false),
                     Datum_Type = table.Column<int>(type: "integer", nullable: true),
                     Datum_Data = table.Column<byte[]>(type: "bytea", nullable: true),
                     ReferenceScript = table.Column<byte[]>(type: "bytea", nullable: true),
-                    UtxoStatus = table.Column<int>(type: "integer", nullable: false),
-                    DateCreated = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    DateSpent = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                    UtxoStatus = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_TransactionOutputs", x => new { x.Id, x.Index });
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Transactions",
+                schema: "cardanoindexer",
+                columns: table => new
+                {
+                    Slot = table.Column<decimal>(type: "numeric(20,0)", nullable: false),
+                    Hash = table.Column<string>(type: "text", nullable: false),
+                    TxCbor = table.Column<byte[]>(type: "bytea", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Transactions", x => new { x.Slot, x.Hash });
                 });
 
             migrationBuilder.CreateIndex(
@@ -69,6 +82,12 @@ namespace Cardano.Sync.Example.Migrations
                 schema: "cardanoindexer",
                 table: "Blocks",
                 column: "Slot");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TransactionOutputs_Address",
+                schema: "cardanoindexer",
+                table: "TransactionOutputs",
+                column: "Address");
 
             migrationBuilder.CreateIndex(
                 name: "IX_TransactionOutputs_Id",
@@ -93,6 +112,12 @@ namespace Cardano.Sync.Example.Migrations
                 schema: "cardanoindexer",
                 table: "TransactionOutputs",
                 column: "UtxoStatus");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Transactions_Slot",
+                schema: "cardanoindexer",
+                table: "Transactions",
+                column: "Slot");
         }
 
         /// <inheritdoc />
@@ -108,6 +133,10 @@ namespace Cardano.Sync.Example.Migrations
 
             migrationBuilder.DropTable(
                 name: "TransactionOutputs",
+                schema: "cardanoindexer");
+
+            migrationBuilder.DropTable(
+                name: "Transactions",
                 schema: "cardanoindexer");
         }
     }
