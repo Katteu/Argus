@@ -4,7 +4,10 @@ using PallasDotnet.Models;
 using BlockEntity = Cardano.Sync.Data.Models.Block;
 namespace Cardano.Sync.Reducers;
 
-public class BlockReducer<T>(IDbContextFactory<T> dbContextFactory) : IBlockReducer where T : CardanoDbContext
+
+// Model
+
+public class BlockReducer<T>(IDbContextFactory<T> dbContextFactory) : IReducer where T : CardanoDbContext
 {
     private T _dbContext = default!;
 
@@ -31,4 +34,6 @@ public class BlockReducer<T>(IDbContextFactory<T> dbContextFactory) : IBlockRedu
         await _dbContext.SaveChangesAsync();
         _dbContext.Dispose();
     }
+
+    // OnModelCreating
 }

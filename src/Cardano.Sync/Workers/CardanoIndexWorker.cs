@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PallasDotnet;
 using PallasDotnet.Models;
+using Cardano.Sync.Utils;
 
 namespace Cardano.Sync.Workers;
 
@@ -17,16 +18,12 @@ public class CardanoIndexWorker<T>(
     IConfiguration configuration,
     ILogger<CardanoIndexWorker<T>> logger,
     IDbContextFactory<T> dbContextFactory,
-    IEnumerable<IBlockReducer> blockReducers,
-    IEnumerable<ICoreReducer> coreReducers,
     IEnumerable<IReducer> reducers
 ) : BackgroundService where T : CardanoDbContext
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        IList<IReducer> combinedReducers = [.. blockReducers, .. coreReducers, .. reducers];
-
-        await Task.WhenAll(combinedReducers.Select(reducer => ChainSyncReducerAsync(reducer, stoppingToken)));
+        await Task.WhenAll(reducers.Select(reducer => ChainSyncReducerAsync(reducer, stoppingToken)));
     }
 
     private async Task ChainSyncReducerAsync(IReducer reducer, CancellationToken stoppingToken)
@@ -45,7 +42,7 @@ public class CardanoIndexWorker<T>(
             NextResponse response = e.NextResponse;
             logger.Log(
                 LogLevel.Information, "[{reducer}]: New Chain Event {Action}: {Slot} Block: {Block}",
-                CardanoIndexWorker<T>.GetTypeNameWithoutGenerics(reducer.GetType()),
+                ArgusUtils.GetTypeNameWithoutGenerics(reducer.GetType()),
                 response.Action,
                 response.Block.Slot,
                 response.Block.Number
@@ -66,13 +63,13 @@ public class CardanoIndexWorker<T>(
                                 bool canProceed = true;
                                 foreach (Type dependency in reducerDependencies)
                                 {
-                                    string dependencyName = GetTypeNameWithoutGenerics(dependency);
+                                    string dependencyName = ArgusUtils.GetTypeNameWithoutGenerics(dependency);
                                     ReducerState? dependencyState = await dbContext.ReducerStates.AsNoTracking().FirstOrDefaultAsync(rs => rs.Name == dependencyName, stoppingToken); // Use cancellation token here
 
                                     if (dependencyState == null || dependencyState.Slot < response.Block.Slot)
                                     {
                                         logger.Log(LogLevel.Information, "[{Reducer}]: Waiting for dependency {Dependency} Slot {depdencySlot} < {currentSlot}",
-                                            GetTypeNameWithoutGenerics(reducer.GetType()),
+                                            ArgusUtils.GetTypeNameWithoutGenerics(reducer.GetType()),
                                             dependencyName,
                                             dependencyState?.Slot,
                                             response.Block.Slot
@@ -89,7 +86,7 @@ public class CardanoIndexWorker<T>(
 
                             await reducer.RollForwardAsync(response);
                             reducerStopwatch.Stop();
-                            logger.Log(LogLevel.Information, "Processed RollForwardAsync[{}] in {ElapsedMilliseconds} ms", GetTypeNameWithoutGenerics(reducer.GetType()), reducerStopwatch.ElapsedMilliseconds);
+                            logger.Log(LogLevel.Information, "Processed RollForwardAsync[{}] in {ElapsedMilliseconds} ms", ArgusUtils.GetTypeNameWithoutGenerics(reducer.GetType()), reducerStopwatch.ElapsedMilliseconds);
                         }
                         catch(Exception ex)
                         {
@@ -103,7 +100,7 @@ public class CardanoIndexWorker<T>(
                     {
                         try
                         {
-                            string reducerName = GetTypeNameWithoutGenerics(reducer.GetType());
+                            string reducerName = ArgusUtils.GetTypeNameWithoutGenerics(reducer.GetType());
                             ulong reducerCurrentSlot = dbContext.ReducerStates
                                 .AsNoTracking()
                                 .Where(rs => rs.Name == reducerName)
@@ -151,13 +148,13 @@ public class CardanoIndexWorker<T>(
 
             Task.Run(async () =>
             {
-                ReducerState? reducerState = await dbContext.ReducerStates.FirstOrDefaultAsync(rs => rs.Name == GetTypeNameWithoutGenerics(reducer.GetType()));
+                ReducerState? reducerState = await dbContext.ReducerStates.FirstOrDefaultAsync(rs => rs.Name == ArgusUtils.GetTypeNameWithoutGenerics(reducer.GetType()));
 
                 if (reducerState is null)
                 {
                     dbContext.ReducerStates.Add(new()
                     {
-                        Name = GetTypeNameWithoutGenerics(reducer.GetType()),
+                        Name = ArgusUtils.GetTypeNameWithoutGenerics(reducer.GetType()),
                         Slot = response.Block.Slot,
                         Hash = response.Block.Hash.ToHex()
                     });
@@ -177,7 +174,7 @@ public class CardanoIndexWorker<T>(
             logger.Log(
                 LogLevel.Information,
                 "[{reducer}]: Processed Chain Event {Action}: {Slot} Block: {Block} in {ElapsedMilliseconds} ms, Mem: {MemoryUsage} MB",
-                CardanoIndexWorker<T>.GetTypeNameWithoutGenerics(reducer.GetType()),
+                ArgusUtils.GetTypeNameWithoutGenerics(reducer.GetType()),
                 response.Action,
                 response.Block.Slot,
                 response.Block.Number,
@@ -195,8 +192,8 @@ public class CardanoIndexWorker<T>(
         nodeClient.Disconnected += DisconnectedHandler;
 
         // Reducer specific start slot and hash
-        ulong startSlot = configuration.GetValue<ulong>($"CardanoIndexStartSlot_{GetTypeNameWithoutGenerics(reducer.GetType())}");
-        string? startHash = configuration.GetValue<string>($"CardanoIndexStartHash_{GetTypeNameWithoutGenerics(reducer.GetType())}");
+        ulong startSlot = configuration.GetValue<ulong>($"CardanoIndexStartSlot_{ArgusUtils.GetTypeNameWithoutGenerics(reducer.GetType())}");
+        string? startHash = configuration.GetValue<string>($"CardanoIndexStartHash_{ArgusUtils.GetTypeNameWithoutGenerics(reducer.GetType())}");
 
         // Fallback to global start slot and hash
         if (startSlot == 0 && startHash is null)
@@ -207,7 +204,7 @@ public class CardanoIndexWorker<T>(
 
         // Use educer state from database if available
         ReducerState? reducerState = await dbContext.ReducerStates
-            .FirstOrDefaultAsync(rs => rs.Name == GetTypeNameWithoutGenerics(reducer.GetType()), cancellationToken: stoppingToken);
+            .FirstOrDefaultAsync(rs => rs.Name == ArgusUtils.GetTypeNameWithoutGenerics(reducer.GetType()), cancellationToken: stoppingToken);
 
         if (reducerState is not null)
         {
@@ -233,17 +230,6 @@ public class CardanoIndexWorker<T>(
             nodeClient.ChainSyncNextResponse -= Handler;
             nodeClient.Disconnected -= DisconnectedHandler;
         }
-    }
-
-    private static string GetTypeNameWithoutGenerics(Type type)
-    {
-        string typeName = type.Name;
-        int genericCharIndex = typeName.IndexOf('`');
-        if (genericCharIndex != -1)
-        {
-            typeName = typeName[..genericCharIndex];
-        }
-        return typeName;
     }
 
     public static double GetCurrentMemoryUsageInMB()
