@@ -12,9 +12,9 @@ using PallasDotnet.Models;
 
 namespace Cardano.Sync.Workers;
 
-public class CriticalNodeException(string message) : Exception(message) { }
+public class CriticalNodeExceptionz(string message) : Exception(message) { }
 
-public class CardanoIndexWorker<T>(
+public class OldCardanoIndexWorker<T>(
     IConfiguration configuration,
     ILogger<CardanoIndexWorker<T>> logger,
     IDbContextFactory<T> dbContextFactory,
@@ -35,6 +35,75 @@ public class CardanoIndexWorker<T>(
         string reducerName = ArgusUtils.GetTypeNameWithoutGenerics(reducer.GetType());
         ReducerState? reducerState = await ArgusUtils.GetReducerStateAsync(dbContext, reducerName, stoppingToken);
 
+        void Handler(object? sender, ChainSyncNextResponseEventArgs e)
+        {
+            if (e.NextResponse.Action == NextResponseAction.Await) return;
+
+            Stopwatch stopwatch = new();
+            stopwatch.Start();
+
+            NextResponse response = e.NextResponse;
+
+            logger.Log(
+                LogLevel.Information, "[{reducer}]: New Chain Event {Action}: {Slot} Block: {Block}",
+                reducerName,
+                response.Action,
+                response.Block.Slot,
+                response.Block.Number
+            );
+
+            Dictionary<NextResponseAction, Func<IReducer, NextResponse, T, string, CancellationToken, Task>> actionMethodMap = new()
+            {
+                { NextResponseAction.RollForward, ProcessRollForwardAsync },
+                { NextResponseAction.RollBack, ProcessRollBackAsync }
+            };
+
+            // Execute reducer action
+            Func<IReducer, NextResponse, T, string, CancellationToken, Task> reducerAction = actionMethodMap[response.Action];
+            reducerAction(reducer, response, dbContext, reducerName, stoppingToken).Wait(stoppingToken);
+
+            Task.Run(async () =>
+            {
+                // @TODO: Add a function to save reducer states
+                if (reducerState is null)
+                {
+                    dbContext.ReducerStates.Add(new()
+                    {
+                        Name = ArgusUtils.GetTypeNameWithoutGenerics(reducer.GetType()),
+                        Slot = response.Block.Slot,
+                        Hash = response.Block.Hash.ToHex()
+                    });
+                }
+                else
+                {
+                    reducerState.Slot = response.Block.Slot;
+                    reducerState.Hash = response.Block.Hash.ToHex();
+                }
+                await dbContext.SaveChangesAsync();
+            }, stoppingToken).Wait(stoppingToken);
+
+            stopwatch.Stop();
+
+            logger.Log(
+                LogLevel.Information,
+                "[{reducer}]: Processed Chain Event {Action}: {Slot} Block: {Block} in {ElapsedMilliseconds} ms, Mem: {MemoryUsage} MB",
+                ArgusUtils.GetTypeNameWithoutGenerics(reducer.GetType()),
+                response.Action,
+                response.Block.Slot,
+                response.Block.Number,
+                stopwatch.ElapsedMilliseconds,
+                Math.Round(GetCurrentMemoryUsageInMB(), 2)
+            );
+        }
+
+        void DisconnectedHandler(object? sender, EventArgs e)
+        {
+            linkedCts.Cancel();
+        }
+
+        nodeClient.ChainSyncNextResponse += Handler;
+        nodeClient.Disconnected += DisconnectedHandler;
+
         ulong startSlot = configuration.GetValue<ulong>($"CardanoIndexStartSlot_{reducerName}");
         string? startHash = configuration.GetValue<string>($"CardanoIndexStartHash_{reducerName}");
 
@@ -50,64 +119,24 @@ public class CardanoIndexWorker<T>(
             startHash = reducerState.Hash;
         }
 
-        // if (EF.NextResponse.Action == NextResponseAction.Await) return;
+        Point tip = await nodeClient.ConnectAsync(configuration.GetValue<string>("CardanoNodeSocketPath")!, configuration.GetValue<ulong>("CardanoNetworkMagic"));
+        await nodeClient.StartChainSyncAsync(new(
+            startSlot,
+            Hash.FromHex(startHash!)
+        ));
 
-        // Stopwatch stopwatch = new();
-        // stopwatch.Start();
-
-        // NextResponse response = e.NextResponse;
-
-        // logger.Log(
-        //     LogLevel.Information, "[{reducer}]: New Chain Event {Action}: {Slot} Block: {Block}",
-        //     reducerName,
-        //     response.Action,
-        //     response.Block.Slot,
-        //     response.Block.Number
-        // );
-
-        // Dictionary<NextResponseAction, Func<IReducer, NextResponse, T, string, CancellationToken, Task>> actionMethodMap = new()
-        // {
-        //     { NextResponseAction.RollForward, ProcessRollForwardAsync },
-        //     { NextResponseAction.RollBack, ProcessRollBackAsync }
-        // };
-
-        // // Execute reducer action
-        // Func<IReducer, NextResponse, T, string, CancellationToken, Task> reducerAction = actionMethodMap[response.Action];
-        // reducerAction(reducer, response, dbContext, reducerName, stoppingToken).Wait(stoppingToken);
-
-        // Task.Run(async () =>
-        // {
-        //     // @TODO: Add a function to save reducer states
-        //     if (reducerState is null)
-        //     {
-        //         dbContext.ReducerStates.Add(new()
-        //         {
-        //             Name = ArgusUtils.GetTypeNameWithoutGenerics(reducer.GetType()),
-        //             Slot = response.Block.Slot,
-        //             Hash = response.Block.Hash.ToHex()
-        //         });
-        //     }
-        //     else
-        //     {
-        //         reducerState.Slot = response.Block.Slot;
-        //         reducerState.Hash = response.Block.Hash.ToHex();
-        //     }
-        //     await dbContext.SaveChangesAsync();
-        // }, stoppingToken).Wait(stoppingToken);
-
-        // stopwatch.Stop();
-
-        // logger.Log(
-        //     LogLevel.Information,
-        //     "[{reducer}]: Processed Chain Event {Action}: {Slot} Block: {Block} in {ElapsedMilliseconds} ms, Mem: {MemoryUsage} MB",
-        //     ArgusUtils.GetTypeNameWithoutGenerics(reducer.GetType()),
-        //     response.Action,
-        //     response.Block.Slot,
-        //     response.Block.Number,
-        //     stopwatch.ElapsedMilliseconds,
-        //     Math.Round(GetCurrentMemoryUsageInMB(), 2)
-        // );
-        
+        try
+        {
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                await Task.Delay(100, stoppingToken);
+            }
+        }
+        finally
+        {
+            nodeClient.ChainSyncNextResponse -= Handler;
+            nodeClient.Disconnected -= DisconnectedHandler;
+        }
     }
 
     private async Task ProcessRollForwardAsync(IReducer reducer, NextResponse response, T dbContext, string reducerName, CancellationToken stoppingToken)

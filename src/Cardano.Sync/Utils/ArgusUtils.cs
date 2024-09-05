@@ -20,15 +20,19 @@ public static class ArgusUtils
     public static async Task<ReducerState?> GetReducerStateAsync(
         CardanoDbContext dbContext,
         string reducerName,
-        bool tracking,
         CancellationToken cancellationToken = default
     )
     {
         IQueryable<ReducerState> baseQuery = dbContext.ReducerStates
             .Where(rs => rs.Name == reducerName);
 
-        IQueryable<ReducerState> query = tracking ? baseQuery.AsNoTracking() : baseQuery;
-
-        return await query.FirstOrDefaultAsync(cancellationToken);
+        if (cancellationToken == CancellationToken.None)
+        {
+            return await baseQuery.FirstOrDefaultAsync();
+        }
+        else
+        {
+            return await baseQuery.FirstOrDefaultAsync(cancellationToken);
+        }
     }
 }
